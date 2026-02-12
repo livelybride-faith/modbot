@@ -1,36 +1,48 @@
 const { Client } = require("revolt.js");
+const fs = require("fs"); // Import File System module
 const express = require("express");
 
-// 1. RENDER PORT BINDING
+// --- 1. RENDER WEB SERVER ---
 const app = express();
 app.get("/", (req, res) => res.send("AutoMod is shielding the server."));
 app.listen(process.env.PORT || 10000);
 
-// 2. BOT SETUP
+// --- 2. LOAD EXTERNAL BANNED WORDS ---
+let BANNED_WORDS = [];
+try {
+    const data = fs.readFileSync("banned_words.txt", "utf8");
+    // Split by comma and remove any accidental spaces/new lines
+    BANNED_WORDS = data.split(",").map(word => word.trim().toLowerCase());
+    console.log(`🛡️ Loaded ${BANNED_WORDS.length} banned words from file.`);
+} catch (err) {
+    console.error("❌ Could not find banned_words.txt! Starting with empty list.");
+}
+
+// --- 3. BOT SETUP ---
 const client = new Client({ apiURL: "https://api.stoat.chat" });
 
-// Define forbidden words or patterns
-const BANNED_WORDS = ["spamlink.com", "badword1", "badword2"]; 
-
-client.on("ready", () => console.log(`🛡️ AutoMod active as ${client.user.username}`));
+client.on("ready", () => console.log(`✅ AutoMod logged in as ${client.user.username}`));
 
 client.on("messageCreate", async (message) => {
-    if (message.author?.bot) return;
+    if (!message.content || message.author?.bot) return;
 
-    const content = message.content.toLowerCase();
+    // Remove punctuation and split message into words
+    const userWords = message.content
+        .toLowerCase()
+        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")
+        .split(/\s+/);
 
-    // 3. MODERATION LOGIC
-    const containsBanned = BANNED_WORDS.some(word => content.includes(word));
-    
-    if (containsBanned) {
+    // Check if any word in the message is in our BANNED_WORDS list
+    const foundBadWord = userWords.some(word => BANNED_WORDS.includes(word));
+
+    if (foundBadWord) {
         try {
             await message.delete();
-            const warning = await message.channel.sendMessage(`⚠️ <@${message.author.id}>, your message was removed for violating server rules.`);
-            // Auto-delete the warning after 5 seconds
-            setTimeout(() => warning.delete(), 5000);
+            const warning = await message.channel.sendMessage(`⚠️ <@${message.author.id}>, that word is not allowed here.`);
+            setTimeout(() => warning.delete(), 4000);
             console.log(`[MOD] Deleted message from ${message.author.username}`);
         } catch (e) {
-            console.error("Failed to delete message. Check permissions!");
+            console.error("Mod Error: Check if Bot has 'Manage Messages' permission.");
         }
     }
 });
