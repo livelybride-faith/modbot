@@ -1,5 +1,6 @@
 const { Client } = require("revolt.js");
-const fs = require("fs"); // Import File System module
+const fs = require("fs");
+const path = require("path"); // Added for reliable file paths
 const express = require("express");
 
 // --- 1. RENDER WEB SERVER ---
@@ -9,42 +10,76 @@ app.listen(process.env.PORT || 10000);
 
 // --- 2. LOAD EXTERNAL BANNED WORDS ---
 let BANNED_WORDS = [];
-try {
-    const data = fs.readFileSync("banned_words.txt", "utf8");
-    // Split by comma and remove any accidental spaces/new lines
-    BANNED_WORDS = data.split(",").map(word => word.trim().toLowerCase());
-    console.log(`🛡️ Loaded ${BANNED_WORDS.length} banned words from file.`);
-} catch (err) {
-    console.error("❌ Could not find banned_words.txt! Starting with empty list.");
+
+function loadBannedWords() {
+    try {
+        // Path joins the current folder with the filename
+        const filePath = path.join(__dirname, "banned_words.txt");
+        
+        if (fs.existsSync(filePath)) {
+            const data = fs.readFileSync(filePath, "utf8");
+            // Split by comma, filter out empty strings, and trim whitespace
+            BANNED_WORDS = data.split(",")
+                .map(word => word.trim().toLowerCase())
+                .filter(word => word.length > 0);
+            
+            console.log(`🛡️ AutoMod: Successfully loaded ${BANNED_WORDS.length} words.`);
+        } else {
+            console.log("⚠️ Warning: banned_words.txt not found in root directory.");
+        }
+    } catch (err) {
+        console.error("❌ Error reading banned_words.txt:", err.message);
+    }
 }
+
+// Initial load
+loadBannedWords();
 
 // --- 3. BOT SETUP ---
 const client = new Client({ apiURL: "https://api.stoat.chat" });
 
-client.on("ready", () => console.log(`✅ AutoMod logged in as ${client.user.username}`));
+client.on("ready", () => {
+    console.log(`✅ Shield Active: Logged in as ${client.user.username}`);
+});
 
 client.on("messageCreate", async (message) => {
+    // 1. Safety Checks
     if (!message.content || message.author?.bot) return;
 
-    // Remove punctuation and split message into words
-    const userWords = message.content
+    // 2. Format the message for checking
+    // Removes symbols but keeps the space between words
+    const cleanMessage = message.content
         .toLowerCase()
-        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")
-        .split(/\s+/);
+        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+    
+    const userWords = cleanMessage.split(/\s+/);
 
-    // Check if any word in the message is in our BANNED_WORDS list
+    // 3. Scan for banned words
     const foundBadWord = userWords.some(word => BANNED_WORDS.includes(word));
 
     if (foundBadWord) {
         try {
             await message.delete();
-            const warning = await message.channel.sendMessage(`⚠️ <@${message.author.id}>, that word is not allowed here.`);
-            setTimeout(() => warning.delete(), 4000);
-            console.log(`[MOD] Deleted message from ${message.author.username}`);
+            
+            // Send a self-destructing warning
+            const warning = await message.channel.sendMessage(
+                `⚠️ **AutoMod:** <@${message.author.id}>, that language is not permitted here.`
+            );
+            
+            setTimeout(() => {
+                warning.delete().catch(() => {}); // Catch error if warning already deleted
+            }, 4000);
+
+            console.log(`[MOD] Removed message from ${message.author.username}`);
         } catch (e) {
-            console.error("Mod Error: Check if Bot has 'Manage Messages' permission.");
+            console.error("Mod Error: Ensure the bot has 'Manage Messages' permissions.");
         }
     }
 });
 
-client.loginBot(process.env.BOT_TOKEN);
+// --- 4. START ---
+if (!process.env.BOT_TOKEN) {
+    console.error("❌ Missing BOT_TOKEN environment variable!");
+} else {
+    client.loginBot(process.env.BOT_TOKEN);
+}
