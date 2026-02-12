@@ -13,19 +13,20 @@ let BANNED_WORDS = [];
 
 function loadBannedWords() {
     try {
-        // Path joins the current folder with the filename
         const filePath = path.join(__dirname, "banned_words.txt");
         
         if (fs.existsSync(filePath)) {
-            const data = fs.readFileSync(filePath, "utf8");
-            // Split by comma, filter out empty strings, and trim whitespace
-            BANNED_WORDS = data.split(",")
-                .map(word => word.trim().toLowerCase())
-                .filter(word => word.length > 0);
+            const rawData = fs.readFileSync(filePath, "utf8");
+
+            // --- THE FIX ---
+            // This regex splits by commas OR any type of newline (\r or \n)
+            BANNED_WORDS = rawData.split(/[,\r\n]+/)
+                .map(word => word.trim().toLowerCase()) // Clean up spaces
+                .filter(word => word.length > 0);        // Remove empty lines
             
             console.log(`🛡️ AutoMod: Successfully loaded ${BANNED_WORDS.length} words.`);
         } else {
-            console.log("⚠️ Warning: banned_words.txt not found in root directory.");
+            console.log("⚠️ Warning: banned_words.txt not found.");
         }
     } catch (err) {
         console.error("❌ Error reading banned_words.txt:", err.message);
