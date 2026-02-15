@@ -9,6 +9,7 @@ const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID;
 
 // --- 2. RENDER WEB SERVER ---
 const app = express();
+const PREFIX = "!";
 app.get("/", (req, res) => res.send("AutoMod is shielding the server."));
 app.listen(process.env.PORT || 10000);
 
