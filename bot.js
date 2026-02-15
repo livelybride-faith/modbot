@@ -66,6 +66,8 @@ client.on("memberJoin", async (member) => {
 client.on("messageCreate", async (message) => {
     if (!message.content || message.author?.bot) return;
 
+    const rawContent = message.content.trim();
+    const lowerContent = rawContent.toLowerCase();
     const cleanMessage = message.content
         .toLowerCase()
         .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
@@ -89,6 +91,15 @@ client.on("messageCreate", async (message) => {
             console.error("Mod Error: Ensure the bot has 'Manage Messages' permissions.");
         }
     }
+
+    if (!rawContent.startsWith(PREFIX)) return;
+
+    const fullCommand = rawContent.slice(PREFIX.length).trim();
+    const args = fullCommand.split(/ +/);
+    const commandName = args.shift().toLowerCase();
+
+    // !ping
+    if (commandName === "ping") return message.reply("Pong! ModBot is active.");
 });
 
 // --- 7. START ---
