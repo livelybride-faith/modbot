@@ -15,6 +15,11 @@ const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID || '';
 const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const PREFIX = "!";
 
+// Anti-Spam Settings
+const SPAM_THRESHOLD = 5;      // Max messages allowed
+const SPAM_INTERVAL = 5000;    // Within 5 seconds (5000ms)
+const userMessages = new Map(); // Store: userID -> [timestamps]
+
 // --- 2. WEB SERVER ---
 const PORT = process.env.PORT || 10000;
 const app = express();
@@ -90,6 +95,36 @@ if (AUTO_ASSIGN_ROLE){
 client.on("messageCreate", async (message) => {
     if (!message.content || message.author?.bot) return;
 
+    const authorId = message.author.id;
+    const now = Date.now();
+
+    // Anti-Spam Check
+    if (!userMessages.has(authorId)) {
+        userMessages.set(authorId, []);
+    }
+
+    const timestamps = userMessages.get(authorId);
+    timestamps.push(now);
+
+    // Filter out timestamps older than our interval
+    const recentMessages = timestamps.filter(time => now - time < SPAM_INTERVAL);
+    userMessages.set(authorId, recentMessages);
+
+    if (recentMessages.length > SPAM_THRESHOLD) {
+        try {
+            await message.delete();
+            // Optional: Send a single warning if they keep spamming
+            if (recentMessages.length === SPAM_THRESHOLD + 1) {
+                console.log("Channel Type:", typeof message.channel, "Channel ID:", message.channel_id);
+                const warn = await message.channel.sendMessage(`<@${authorId}>, anti-spam activated.`);
+                setTimeout(() => warn.delete().catch(() => {}), 3000);
+            }
+            return; // Stop processing further (ignore banned words if spamming)
+        } catch (e) {
+            console.error("Spam delete error:", e.message);
+        }
+    }
+    
     const rawContent = message.content.trim();
     const cleanMessage = message.content
         .toLowerCase()
