@@ -1,16 +1,22 @@
-const { Client } = require("revolt.js");
-const fs = require("fs");
-const path = require("path");
-const express = require("express");
+import { Client } from "stoat.js";
+import express from "express";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from 'url';
+import 'dotenv/config';
+
+// Fix for __dirname in ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // --- 1. CONFIGURATION ---
-const AUTO_ASSIGN_ROLE = process.env.AUTO_ASSIGN_ROLE; 
 const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID; 
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const PREFIX = "!";
 
-// --- 2. RENDER WEB SERVER ---
+// --- 2. WEB SERVER ---
 const PORT = process.env.PORT || 10000;
 const app = express();
-const PREFIX = "!";
 app.get("/", (req, res) => res.send("AutoMod is shielding the server."));
 app.listen(PORT, () => console.log(`Web server listening on port ${PORT}`));
 
@@ -37,27 +43,39 @@ function loadBannedWords() {
 loadBannedWords();
 
 // --- 4. BOT SETUP ---
-const client = new Client({ apiURL: "https://api.stoat.chat" });
+const client = new Client();
+
+client.on("error", (err) => {
+    console.error("Socket Error:", err);
+    // This prevents the bot from crashing. 
+    // It will usually try to reconnect automatically.
+});
 
 client.on("ready", () => {
     console.log(`Shield Active: Logged in as ${client.user.username}`);
+    
+    // Heartbeat: Fetch self every 25s to keep connection alive
+    setInterval(async () => {
+        try {
+            await client.users.fetch(client.user.id);
+        } catch (e) {
+            console.error("Heartbeat failed");
+        }
+    }, 25000);
 });
 
 // --- 5. AUTO-ROLE ON JOIN ---
-client.on("memberJoin", async (member) => {
-    // Check if AUTO_ROLE_ID exists and isn't just an empty string
+// Corrected event name based on documentation
+client.on("serverMemberJoin", async (member) => {
+    console.log("AutoRole: Start");
     if (!AUTO_ROLE_ID || AUTO_ROLE_ID.trim() === "") {
         console.log("AutoRole: Feature is disabled (no Role ID provided).");
         return;
     }
 
     try {
-        const server = member.server;
-        if (!server) return;
-
-        // Assign the role
+        // Stoat.js/Revolt.js v7+ uses .edit on the member directly
         await member.edit({ roles: [AUTO_ROLE_ID] });
-        
         console.log(`AutoRole: Assigned role to ${member.user?.username || member._id}`);
     } catch (e) {
         console.error(`AutoRole Error: Check Role ID and permissions.`, e.message);
@@ -69,7 +87,6 @@ client.on("messageCreate", async (message) => {
     if (!message.content || message.author?.bot) return;
 
     const rawContent = message.content.trim();
-    const lowerContent = rawContent.toLowerCase();
     const cleanMessage = message.content
         .toLowerCase()
         .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
@@ -90,7 +107,7 @@ client.on("messageCreate", async (message) => {
 
             console.log(`[MOD] Removed message from ${message.author.username}`);
         } catch (e) {
-            console.error("Mod Error: Ensure the bot has 'Manage Messages' permissions.");
+            console.error("Mod Error: Ensure the bot has Manage Messages permissions.");
         }
     }
 
@@ -100,13 +117,14 @@ client.on("messageCreate", async (message) => {
     const args = fullCommand.split(/ +/);
     const commandName = args.shift().toLowerCase();
 
-    // !ping
-    if (commandName === "ping") return message.reply("Pong! ModBot is active.");
+    if (commandName === "ping") {
+        return message.channel.sendMessage("Pong! ModBot is active.");
+    }
 });
 
 // --- 7. START ---
-if (!process.env.BOT_TOKEN) {
+if (!BOT_TOKEN) {
     console.error("Missing BOT_TOKEN environment variable!");
 } else {
-    client.loginBot(process.env.BOT_TOKEN);
+    client.loginBot(BOT_TOKEN);
 }

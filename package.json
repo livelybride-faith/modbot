@@ -1,10 +1,12 @@
 {
-  "name": "stoat-automod",
+  "name": "stoat-modbot",
   "version": "1.0.0",
+  "type": "module",
   "main": "bot.js",
   "scripts": { "start": "node bot.js" },
   "dependencies": {
-    "revolt.js": "latest",
-    "express": "latest"
+    "stoat.js": "latest",
+    "express": "latest",
+    "dotenv": "latest"
   }
 }
