@@ -10,8 +10,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // --- 1. CONFIGURATION ---
-const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID; 
-const BOT_TOKEN = process.env.BOT_TOKEN;
+const AUTO_ASSIGN_ROLE = process.env.AUTO_ASSIGN_ROLE || false; 
+const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID || ''; 
+const BOT_TOKEN = process.env.BOT_TOKEN || '';
 const PREFIX = "!";
 
 // --- 2. WEB SERVER ---
@@ -66,21 +67,24 @@ client.on("ready", () => {
 
 // --- 5. AUTO-ROLE ON JOIN ---
 // Corrected event name based on documentation
-client.on("serverMemberJoin", async (member) => {
-    console.log("AutoRole: Start");
-    if (!AUTO_ROLE_ID || AUTO_ROLE_ID.trim() === "") {
-        console.log("AutoRole: Feature is disabled (no Role ID provided).");
-        return;
-    }
+if (AUTO_ASSIGN_ROLE){
+    client.on("serverMemberJoin", async (member) => {
+        console.log("AutoRole: Start");
+        if (!AUTO_ROLE_ID || AUTO_ROLE_ID.trim() === "") {
+            console.log("AutoRole: Feature is disabled (no Role ID provided).");
+            return;
+        }
 
-    try {
-        // Stoat.js/Revolt.js v7+ uses .edit on the member directly
-        await member.edit({ roles: [AUTO_ROLE_ID] });
-        console.log(`AutoRole: Assigned role to ${member.user?.username || member._id}`);
-    } catch (e) {
-        console.error(`AutoRole Error: Check Role ID and permissions.`, e.message);
-    }
-});
+        try {
+            // Stoat.js/Revolt.js v7+ uses .edit on the member directly
+            await member.edit({ roles: [AUTO_ROLE_ID] });
+            console.log(`AutoRole: Assigned role to ${member.user?.username || member._id}`);
+        } catch (e) {
+            console.error(`AutoRole Error: Check Role ID and permissions.`, e.message);
+        }
+    });
+}
+
 
 // --- 6. MODERATION LOGIC ---
 client.on("messageCreate", async (message) => {
