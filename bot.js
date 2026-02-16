@@ -8,10 +8,11 @@ const AUTO_ASSIGN_ROLE = process.env.AUTO_ASSIGN_ROLE;
 const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID; 
 
 // --- 2. RENDER WEB SERVER ---
+const PORT = process.env.PORT || 10000;
 const app = express();
 const PREFIX = "!";
 app.get("/", (req, res) => res.send("AutoMod is shielding the server."));
-app.listen(process.env.PORT || 10000);
+app.listen(PORT, () => console.log(`Web server listening on port ${PORT}`));
 
 // --- 3. LOAD EXTERNAL BANNED WORDS ---
 let BANNED_WORDS = [];
