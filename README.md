@@ -4,6 +4,7 @@ Moderator Bot for StoatChat
 ## Feature : 
 1. Automatically delete the message when banned words detected.
 2. Auto assign role when new user join.
+3. Anti-spamming. 
 ---
 ENV Var : 
 ```
