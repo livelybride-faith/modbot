@@ -23,7 +23,7 @@ const userMessages = new Map(); // Store: userID -> [timestamps]
 // --- 2. WEB SERVER ---
 const PORT = process.env.PORT || 10000;
 const app = express();
-app.get("/", (req, res) => res.send("AutoMod is shielding the server."));
+app.get("/", (req, res) => res.send("ModBot is active."));
 app.listen(PORT, () => console.log(`Web server listening on port ${PORT}`));
 
 // --- 3. LOAD EXTERNAL BANNED WORDS ---
@@ -124,7 +124,7 @@ client.on("messageCreate", async (message) => {
             console.error("Spam delete error:", e.message);
         }
     }
-    
+
     const rawContent = message.content.trim();
     const cleanMessage = message.content
         .toLowerCase()
