@@ -5,165 +5,135 @@ import path from "path";
 import { fileURLToPath } from 'url';
 import 'dotenv/config';
 
-// Fix for __dirname in ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // --- 1. CONFIGURATION ---
-const AUTO_ASSIGN_ROLE = process.env.AUTO_ASSIGN_ROLE || false; 
-const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID || ''; 
-const BOT_TOKEN = process.env.BOT_TOKEN || '';
+const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID_DEV; 
+const BOT_TOKEN = process.env.BOT_TOKEN;
 const PREFIX = "!";
 
-// Anti-Spam Settings
-const SPAM_THRESHOLD = 5;      // Max messages allowed
-const SPAM_INTERVAL = 5000;    // Within 5 seconds (5000ms)
-const userMessages = new Map(); // Store: userID -> [timestamps]
+const SPAM_THRESHOLD = 10;      
+const SPAM_INTERVAL = 6000;    
+const userMessages = new Map(); 
 
-// --- 2. WEB SERVER ---
+// --- 2. WEB SERVER (Keep-Alive) ---
 const PORT = process.env.PORT || 10000;
 const app = express();
-app.get("/", (req, res) => res.send("ModBot is active."));
-app.listen(PORT, () => console.log(`Web server listening on port ${PORT}`));
+app.get("/", (req, res) => res.send("ModBot is online."));
+app.listen(PORT, () => console.log(`[WEB] Server active on port ${PORT}`));
 
-// --- 3. LOAD EXTERNAL BANNED WORDS ---
+// --- 3. LOAD BANNED WORDS ---
 let BANNED_WORDS = [];
-
 function loadBannedWords() {
     try {
         const filePath = path.join(__dirname, "banned_words.txt");
         if (fs.existsSync(filePath)) {
-            const rawData = fs.readFileSync(filePath, "utf8");
-            BANNED_WORDS = rawData.split(/[,\r\n]+/)
+            BANNED_WORDS = fs.readFileSync(filePath, "utf8")
+                .split(/[,\r\n]+/)
                 .map(word => word.trim().toLowerCase())
                 .filter(word => word.length > 0);
-            console.log(`AutoMod: Successfully loaded ${BANNED_WORDS.length} words.`);
-        } else {
-            console.log("Warning: banned_words.txt not found.");
+            console.log(`[SYSTEM] Loaded ${BANNED_WORDS.length} banned words.`);
         }
     } catch (err) {
-        console.error("Error reading banned_words.txt:", err.message);
+        console.error("[ERROR] Failed to load banned words:", err.message);
     }
 }
-
 loadBannedWords();
 
-// --- 4. BOT SETUP ---
+// --- 4. BOT SETUP & RECONNECT LOGIC ---
 const client = new Client();
 
-client.on("error", (err) => {
-    console.error("Socket Error:", err);
-    // This prevents the bot from crashing. 
-    // It will usually try to reconnect automatically.
-});
-
 client.on("ready", () => {
-    console.log(`Shield Active: Logged in as ${client.user.username}`);
-    
-    // Heartbeat: Fetch self every 25s to keep connection alive
-    setInterval(async () => {
-        try {
-            await client.users.fetch(client.user.id);
-        } catch (e) {
-            console.error("Heartbeat failed");
-        }
-    }, 25000);
+    console.log(`[SUCCESS] Connected as ${client.user.username}`);
 });
 
-// --- 5. AUTO-ROLE ON JOIN ---
-// Corrected event name based on documentation
-if (AUTO_ASSIGN_ROLE){
-    client.on("serverMemberJoin", async (member) => {
-        console.log("AutoRole: Start");
-        if (!AUTO_ROLE_ID || AUTO_ROLE_ID.trim() === "") {
-            console.log("AutoRole: Feature is disabled (no Role ID provided).");
-            return;
-        }
+// If the WebSocket closes, this will trigger
+client.on("logout", () => {
+    console.log("[WARNING] Disconnected from Stoat. Attempting to reconnect...");
+    startBot();
+});
 
-        try {
-            // Stoat.js/Revolt.js v7+ uses .edit on the member directly
-            await member.edit({ roles: [AUTO_ROLE_ID] });
-            console.log(`AutoRole: Assigned role to ${member.user?.username || member._id}`);
-        } catch (e) {
-            console.error(`AutoRole Error: Check Role ID and permissions.`, e.message);
-        }
-    });
-}
+client.on("error", (err) => {
+    console.error("[SOCKET ERROR]", err);
+});
 
+// --- 5. AUTO-ROLE ---
+client.on("serverMemberJoin", async (member) => {
+    if (!AUTO_ROLE_ID) return;
+    try {
+        await member.edit({ roles: [AUTO_ROLE_ID] });
+        console.log(`[AUTOROLE] Assigned role to ${member.user?.username || member._id}`);
+    } catch (e) {
+        console.error(`[AUTOROLE ERROR] Check bot permissions:`, e.message);
+    }
+});
 
-// --- 6. MODERATION LOGIC ---
+// --- 6. MODERATION & COMMANDS ---
 client.on("messageCreate", async (message) => {
     if (!message.content || message.author?.bot) return;
 
     const authorId = message.author.id;
     const now = Date.now();
 
-    // Anti-Spam Check
-    if (!userMessages.has(authorId)) {
-        userMessages.set(authorId, []);
-    }
-
+    // Anti-Spam Logic
+    if (!userMessages.has(authorId)) userMessages.set(authorId, []);
     const timestamps = userMessages.get(authorId);
     timestamps.push(now);
 
-    // Filter out timestamps older than our interval
     const recentMessages = timestamps.filter(time => now - time < SPAM_INTERVAL);
     userMessages.set(authorId, recentMessages);
 
     if (recentMessages.length > SPAM_THRESHOLD) {
         try {
             await message.delete();
-            // Optional: Send a single warning if they keep spamming
             if (recentMessages.length === SPAM_THRESHOLD + 1) {
-                console.log("Channel Type:", typeof message.channel, "Channel ID:", message.channel_id);
-                const warn = await message.channel.sendMessage(`<@${authorId}>, anti-spam activated.`);
-                setTimeout(() => warn.delete().catch(() => {}), 3000);
+                await message.channel.sendMessage(`<@${authorId}>, slow down. Anti-spam active.`);
             }
-            return; // Stop processing further (ignore banned words if spamming)
+            return;
         } catch (e) {
-            console.error("Spam delete error:", e.message);
+            console.error("[MOD] Spam delete failed:", e.message);
         }
     }
 
-    const rawContent = message.content.trim();
-    const cleanMessage = message.content
-        .toLowerCase()
-        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
-    
+    // Word Filter
+    const cleanMessage = message.content.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
     const userWords = cleanMessage.split(/\s+/);
-    const foundBadWord = userWords.some(word => BANNED_WORDS.includes(word));
+    const hasBadWord = userWords.some(word => BANNED_WORDS.includes(word));
 
-    if (foundBadWord) {
+    if (hasBadWord) {
         try {
             await message.delete();
-            const warning = await message.channel.sendMessage(
-                `AutoMod: <@${message.author.id}>, that language is not permitted here.`
-            );
-            
-            setTimeout(() => {
-                warning.delete().catch(() => {});
-            }, 4000);
-
-            console.log(`[MOD] Removed message from ${message.author.username}`);
+            await message.channel.sendMessage(`Notice: <@${authorId}>, that language is not allowed.`);
+            return;
         } catch (e) {
-            console.error("Mod Error: Ensure the bot has Manage Messages permissions.");
+            console.error("[MOD] Word filter failed:", e.message);
         }
     }
 
-    if (!rawContent.startsWith(PREFIX)) return;
+    // Commands
+    if (!message.content.startsWith(PREFIX)) return;
+    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+    const command = args.shift().toLowerCase();
 
-    const fullCommand = rawContent.slice(PREFIX.length).trim();
-    const args = fullCommand.split(/ +/);
-    const commandName = args.shift().toLowerCase();
-
-    if (commandName === "ping") {
-        return message.channel.sendMessage("Pong! ModBot is active.");
+    if (command === "ping") {
+        message.channel.sendMessage("Pong! ModBot is active.");
     }
 });
 
-// --- 7. START ---
-if (!BOT_TOKEN) {
-    console.error("Missing BOT_TOKEN environment variable!");
-} else {
-    client.loginBot(BOT_TOKEN);
+// --- 7. START FUNCTION ---
+async function startBot() {
+    if (!BOT_TOKEN) {
+        console.error("[FATAL] BOT_TOKEN missing in .env!");
+        return;
+    }
+
+    try {
+        await client.loginBot(BOT_TOKEN);
+    } catch (error) {
+        console.error("[LOGIN FAILED] Retrying in 10 seconds...", error.message);
+        setTimeout(startBot, 10000); // Retry after 10 seconds
+    }
 }
+
+startBot();
