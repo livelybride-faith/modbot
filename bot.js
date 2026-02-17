@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // --- 1. CONFIGURATION ---
-const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID_DEV; 
+const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID; 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PREFIX = "!";
 
