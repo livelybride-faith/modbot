@@ -6,6 +6,7 @@ Moderator Bot for StoatChat
 2. Auto assign role when new user join.
 3. Anti-spamming.
 4. Mute, unmute and info function. Default is set to 15m. Enter 20m for 20 minutes, 2h for 2hours, 20d for 20 days & so on...
+
 | Command | Action |
 | :--- | :--- |
 | `!mute @username 15m` | Mute user for 15 mins |
@@ -13,6 +14,7 @@ Moderator Bot for StoatChat
 | `!mute @username 1d` | Mute user for 1 day (Max 28 days) |
 | `!unmute @username` | Remove mute |
 | `!info @username` | Check status |
+
 ---
 ENV Var : 
 ```
