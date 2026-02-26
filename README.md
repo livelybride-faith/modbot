@@ -21,9 +21,11 @@ const RULES = { }
 
 ---
 ENV Var : 
-```
-AUTO_ASSIGN_ROLE = TRUE //to enable.
+```env
+#TRUE to enable auto assign role when new member join.
+AUTO_ASSIGN_ROLE = TRUE 
 AUTO_ROLE_ID = [YOUR_ROLE_ID]
+#Multiple roles separated by ,
 AUTHORIZED_MOD_ROLES=YOUR_ROLE_ID, YOUR_ANOTHER_ROLE_ID
 ```
 ## 📜 License
