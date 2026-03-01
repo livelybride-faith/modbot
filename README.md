@@ -29,7 +29,7 @@ AUTO_ROLE_ID = [YOUR_ROLE_ID]
 AUTHORIZED_MOD_ROLES=YOUR_ROLE_ID, YOUR_ANOTHER_ROLE_ID
 ```
 ## 📜 License
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/livelybride-faith/MenuBarSpacingController/blob/main/LICENSE.txt) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/livelybride-faith/modbot/blob/main/LICENSE) file for details.
 
 ## Buy me a coffee 
 [![PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/paypalme/MichelleYeow)
