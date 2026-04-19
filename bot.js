@@ -14,6 +14,7 @@ const WELCOME_ROLE_ID = process.env.WELCOME_ROLE_ID;
 const MEMBER_ROLE_ID = process.env.MEMBER_ROLE_ID;
 const SERVER_ID = process.env.SERVER_ID;
 const BOT_TOKEN = process.env.BOT_TOKEN;
+const ALLOWED_BOT = process.env.ALLOWED_BOT;
 const PREFIX = "!";
 
 const SPAM_THRESHOLD = 10;      
