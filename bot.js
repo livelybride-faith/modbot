@@ -98,7 +98,13 @@ client.on("serverMemberJoin", async (member) => {
 
 // --- 6. MODERATION & COMMANDS ---
 client.on("messageCreate", async (message) => {
-    if (!message.content || message.author?.bot) return;
+    // 1. Basic existence check
+    if (!message.content) return;
+
+    // 2. Allow our specific Watcher, but ignore all other bots
+    if (message.author?.bot) {
+        if (message.author.id !== ALLOWED_BOT) return;
+    }
     
     const authorId = message.author.id;
     const now = Date.now();
